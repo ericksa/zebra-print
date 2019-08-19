@@ -1,0 +1,130 @@
+<html>
+<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<head>
+<script type="text/javascript" src="./BrowserPrint-2.0.0.75.min.js"></script>
+<script type="text/javascript">
+var BrowserPrint=function(){function g(a,d){var c=new XMLHttpRequest;"withCredentials"in c?c.open(a,d,!0):"undefined"!=typeof XDomainRequest?(c=new XDomainRequest,c.open(a,d)):c=null;return c}function h(a,d,c,b){void 0!=a&&(void 0==c&&(c=a.sendFinishedCallback),void 0==b&&(b=a.sendErrorCallback));d.onreadystatechange=function(){d.readyState===XMLHttpRequest.DONE&&200===d.status?c(d.responseText):d.readyState===XMLHttpRequest.DONE&&(b?b(d.responseText):console.log("error occurred with no errorCallback set."))};
+return d}var e={},k={},f="http://127.0.0.1:9100/";0<=navigator.userAgent.indexOf("Trident/7.0")&&"https:"===location.protocol&&(f="https://localhost:9101/");e.Device=function(a){var d=this;this.name=a.name;this.deviceType=a.deviceType;this.connection=a.connection;this.uid=a.uid;this.version=2;this.provider=a.provider;this.manufacturer=a.manufacturer;this.sendErrorCallback=function(c){};this.sendFinishedCallback=function(c){};this.send=function(c,a,l){var b=g("POST",f+"write");b&&(h(d,b,a,l),b.send(JSON.stringify({device:{name:this.name,
+uid:this.uid,connection:this.connection,deviceType:this.deviceType,version:this.version,provider:this.provider,manufacturer:this.manufacturer},data:c})))};this.sendUrl=function(c,a,l){var b=g("POST",f+"write");b&&(h(d,b,a,l),b.send(JSON.stringify({device:{name:this.name,uid:this.uid,connection:this.connection,deviceType:this.deviceType,version:this.version,provider:this.provider,manufacturer:this.manufacturer},url:c})))};this.readErrorCallback=function(c){};this.readFinishedCallback=function(c){};
+this.read=function(c,a){var b=g("POST",f+"read");b&&(h(d,b,c,a),b.send(JSON.stringify({device:{name:this.name,uid:this.uid,connection:this.connection,deviceType:this.deviceType,version:this.version,provider:this.provider,manufacturer:this.manufacturer}})))};this.sendThenRead=function(a,b,d){this.send(a,function(a){return function(){a.read(b,d)}}(this),d)}};e.ApplicationConfiguration=function(){this.application={version:"1.2.0.3",build_number:3,api_level:2,platform:""}};e.getLocalDevices=function(a,
+d,c){var b=g("GET",f+"available");b&&(finishedFunction=function(b){response=b;response=JSON.parse(response);for(var d in response)if(response.hasOwnProperty(d)&&response[d].constructor===Array)for(arr=response[d],b=0;b<arr.length;++b)arr[b]=new e.Device(arr[b]);void 0==c?a(response):(response.hasOwnProperty(c)||(response[c]=[]),a(response[c]))},h(void 0,b,finishedFunction,d),b.send())};e.getDefaultDevice=function(a,d,c){var b="default";void 0!=a&&null!=a&&(b=b+"?type="+a);if(a=g("GET",f+b))finishedFunction=
+function(a){response=a;""==response?d(null):(response=JSON.parse(response),a=new e.Device(response),d(a))},a=h(void 0,a,finishedFunction,c),a.send()};e.getApplicationConfiguration=function(a,d){var c=g("GET",f+"config");c&&(finishedFunction=function(b){response=b;""==response?a(null):(response=JSON.parse(response),a(response))},h(void 0,c,finishedFunction,d),c.send())};e.readOnInterval=function(a,d,c){if(void 0==c||0==c)c=1;readFunc=function(){a.read(function(b){d(b);k[a]=setTimeout(readFunc,c)},
+function(b){k[a]=setTimeout(readFunc,c)})};k[a]=setTimeout(readFunc,c)};e.stopReadOnInterval=function(a){k[a]&&clearTimeout(k[a])};e.bindFieldToReadData=function(a,d,c,b){e.readOnInterval(a,function(a){""!=a&&(d.value=a,void 0!=b&&null!=b&&b())},c)};return e}();
+
+var selected_device;
+var devices = [];
+function setup()
+{
+	//Get the default device from the application as a first step. Discovery takes longer to complete.
+	BrowserPrint.getDefaultDevice("printer", function(device)
+			{
+
+				//Add device to list of devices and to html select element
+				selected_device = device;
+				devices.push(device);
+				var html_select = document.getElementById("selected_device");
+				var option = document.createElement("option");
+				option.text = device.name;
+				html_select.add(option);
+
+				//Discover any other devices available to the application
+				BrowserPrint.getLocalDevices(function(device_list){
+					for(var i = 0; i < device_list.length; i++)
+					{
+						//Add device to list of devices and to html select element
+						var device = device_list[i];
+						if(!selected_device || device.uid != selected_device.uid)
+						{
+							devices.push(device);
+							var option = document.createElement("option");
+							option.text = device.name;
+							option.value = device.uid;
+							html_select.add(option);
+						}
+					}
+
+				}, function(){alert("Error getting local devices")},"printer");
+
+			}, function(error){
+				alert(error);
+			})
+}
+function getConfig(){
+	BrowserPrint.getApplicationConfiguration(function(config){
+		alert(JSON.stringify(config))
+	}, function(error){
+		alert(JSON.stringify(new BrowserPrint.ApplicationConfiguration()));
+	})
+}
+function writeToSelectedPrinter(dataToWrite)
+{
+	selected_device.send(dataToWrite, undefined, errorCallback);
+}
+var readCallback = function(readData) {
+	if(readData === undefined || readData === null || readData === "")
+	{
+		alert("No Response from Device");
+	}
+	else
+	{
+		alert(readData);
+	}
+
+}
+var errorCallback = function(errorMessage){
+	alert("Error: " + errorMessage);
+}
+function readFromSelectedPrinter()
+{
+
+	selected_device.read(readCallback, errorCallback);
+
+}
+function getDeviceCallback(deviceList)
+{
+	alert("Devices: \n" + JSON.stringify(deviceList, null, 4))
+}
+
+function sendImage(imageUrl)
+{
+	url = window.location.href.substring(0, window.location.href.lastIndexOf("/"));
+	url = url + "/" + imageUrl;
+	selected_device.sendUrl(url, undefined, errorCallback)
+}
+function sendImageHttp(imageUrl)
+{
+	url = window.location.href.substring(0, window.location.href.lastIndexOf("/"));
+	url = url + "/" + imageUrl;
+	url = url.replace("https", "http");
+	selected_device.sendUrl(url, undefined, errorCallback)
+}
+function onDeviceSelected(selected)
+{
+	for(var i = 0; i < devices.length; ++i){
+		if(selected.value == devices[i].uid)
+		{
+			selected_device = devices[i];
+			return;
+		}
+	}
+}
+window.onload = setup;
+</script>
+</head>
+<body>
+
+<span style="padding-right:50px; font-size:200%">Zebra Browser Print Test Page</span><br/>
+<span style="font-size:75%">This page must be loaded from a web server to function properly.</span><br><br>
+Selected Device: <select id="selected_device" onchange=onDeviceSelected(this);></select> <!--  <input type="button" value="Change" onclick="changeDevice();">--> <br/><br/>
+<input type="button" value="Get Application Configuration" onclick="getConfig()"><br/><br/>
+<input type="button" value="Send Config Label" onclick="writeToSelectedPrinter('~wc')"><br/><br/>
+<input type="button" value="Send ZPL Label" onclick="writeToSelectedPrinter('^XA^FO200,200^A0N36,36^FDTest Label^FS^XZ')"><br/><br/>
+<input type="button" value="Get Status" onclick="writeToSelectedPrinter('~hs'); readFromSelectedPrinter()"><br/><br/>
+<input type="button" value="Get Local Devices" onclick="BrowserPrint.getLocalDevices(getDeviceCallback, errorCallback);"><br/><br/>
+<input type="text" name="write_text" id="write_text"><input type="button" value="Write" onclick="writeToSelectedPrinter(document.getElementById('write_text').value)"><br/><br/>
+<input type="button" value="Read" onclick="readFromSelectedPrinter()"><br/><br/>
+<input type="button" value="Send BMP" onclick="sendImage('Zebra_logobox.bmp');"><br/><br/>
+<input type="button" value="Send JPG" onclick="sendImage('ZebraGray.jpg');"><br/><br/>
+
+</body>
+</html>
